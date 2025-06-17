@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Colors
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m' 
 
-# Host Discovery
+
 host_discovery() {
     target_host=$1
     echo -e "${CYAN}Checking if $target_host is up...${NC}"
@@ -24,7 +24,7 @@ host_discovery() {
     return 1
 }
 
-# TCP Scan
+
 tcp_scan() {
     ports=()
 
@@ -43,7 +43,7 @@ tcp_scan() {
     done
 }
 
-# UDP Scan (best-effort in Bash)
+
 udp_scan() {
     echo -e "${RED}Note: UDP scanning via Bash is unreliable. For accurate results, use tools like nmap.${NC}"
 
