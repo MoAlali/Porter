@@ -7,7 +7,24 @@ import custom_ping_icmp
 GREEN = '\033[0;32m'
 RED = '\033[0;31m'
 CYAN = '\033[0;36m'
-NC = '\033[0m'  # Reset
+NC = '\033[0m'  
+
+# TODO: Implement a function to discover hosts in a subnet using other methods
+# such as ARP requests or other protocols if ICMP is blocked.
+# This function will be used to discover hosts in a subnet
+def hosts_discovery(host):
+    print(f"{CYAN}Starting host discovery for {host}...{NC}")
+    try:
+        for i in range(1, 255):
+            target = f"{host[:-1]}{i}"
+            if custom_ping_icmp.custom_ping_icmp(target):
+                print(f"{GREEN}{target} is UP (using ICMP){NC}")
+                
+            else:
+                print(f"{RED}{target} is DOWN{NC}")
+    except Exception as e:
+        print(f"{RED}Error during host discovery: {e}{NC}")
+
 
 def print_banner():
     print(CYAN)
@@ -81,7 +98,11 @@ def main():
     host = input("Enter target host IP: ").strip()
     port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
     scan_type = input("Scan type (tcp/udp): ").strip().lower()
-
+    
+    if host.endswith('.0'):
+        hosts_discovery(host)
+    else:
+        host_discovery(host)
     ports = parse_ports(port_input)
 
     if host_discovery(host):
