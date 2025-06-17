@@ -2,8 +2,9 @@ import socket
 import sys
 import re
 import custom_ping_icmp
+# TODO try to make the script use multiple threads for scanning ports to speed up the process.
 
-# ANSI color codes
+
 GREEN = '\033[0;32m'
 RED = '\033[0;31m'
 CYAN = '\033[0;36m'
