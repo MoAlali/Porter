@@ -11,16 +11,28 @@ host_discovery() {
     target_host=$1
     echo -e "${CYAN}Checking if $target_host is up...${NC}"
 
-    ping -c 1 -W 1 "$target_host" > /dev/null 2>&1
+    "$(dirname "$0")/raw_ping" "$target_host" > /dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}$target_host is UP (using ICMP ping)${NC}"
         return 0
     fi
+    if [ "$?" -ne 0 ]; then
+       
+        (echo > /dev/tcp/$target_host/80) >/dev/null 2>&1
+        tcp80_status=$?
+        (echo > /dev/tcp/$target_host/443) >/dev/null 2>&1
+        tcp443_status=$?
 
-    (echo > /dev/tcp/$target_host/80) >/dev/null 2>&1 && { echo -e "${GREEN}$target_host is UP (port 80)${NC}"; return 0; }
-    (echo > /dev/tcp/$target_host/443) >/dev/null 2>&1 && { echo -e "${GREEN}$target_host is UP (port 443)${NC}"; return 0; }
-
-    echo -e "${RED}$target_host is offline or not responding.${NC}"
+        if [ $tcp80_status -eq 0 ]; then
+            echo -e "${GREEN}$target_host is UP (port 80)${NC}"
+            return 0
+        elif [ $tcp443_status -eq 0 ]; then
+            echo -e "${GREEN}$target_host is UP (port 443)${NC}"
+            return 0
+        else
+            echo -e "${RED}$target_host is offline or not responding on ICMP, port 80, or port 443.${NC}"
+        fi
+    fi
     return 1
 }
 
@@ -45,8 +57,6 @@ tcp_scan() {
 
 
 udp_scan() {
-    echo -e "${RED}Note: UDP scanning via Bash is unreliable. For accurate results, use tools like nmap.${NC}"
-
     ports=()
     if [[ "$port_input" =~ ^[0-9]+-[0-9]+$ ]]; then
         IFS='-' read start_port end_port <<< "$port_input"
@@ -63,7 +73,7 @@ udp_scan() {
     done
 }
 
-# Port Scan Selector
+
 port_scan() {
     if [[ "$scan_type" == "tcp" ]]; then
         tcp_scan
@@ -78,7 +88,7 @@ port_scan() {
     fi
 }
 
-# Banner
+
 echo -e "${CYAN}"
 echo "  _____           _            "
 echo " |  __ \         | |           "
@@ -91,7 +101,7 @@ echo "         By Mohammed Aloli     "
 echo -e "${NC}"
 echo
 
-# User Input
+
 read -p "Enter target host IP: " target_host
 host_discovery "$target_host"
 
