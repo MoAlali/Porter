@@ -9,6 +9,7 @@ NC='\033[0m'
 
 host_discovery() {
     target_host=$1
+
     echo -e "${CYAN}Checking if $target_host is up...${NC}"
 
     "$(dirname "$0")/raw_ping" "$target_host" > /dev/null 2>&1
@@ -57,6 +58,7 @@ tcp_scan() {
 
 
 udp_scan() {
+    # try to use python code for udp scan
     ports=()
     if [[ "$port_input" =~ ^[0-9]+-[0-9]+$ ]]; then
         IFS='-' read start_port end_port <<< "$port_input"
@@ -103,13 +105,17 @@ echo
 
 
 read -p "Enter target host IP: " target_host
-host_discovery "$target_host"
+read -p "Enter port or port range to scan (e.g., 22 or 20-80): " port_input
+read -p "Scan type (tcp/udp): " scan_type
 
-if [[ $? -eq 0 ]]; then
-    read -p "Enter port or port range to scan (e.g., 22 or 20-80): " port_input
-    read -p "Scan type (tcp/udp): " scan_type
+
+
+host_discovery "$target_host"
+if [ $? -eq 0 ]; then
+    echo -e "${CYAN}Starting port scan on $target_host...${NC}"
     port_scan
+    echo -e "${GREEN}Port scan completed.${NC}"
 else
-    echo -e "${RED}Exiting...$target_host is not reachable.${NC}"
+    echo -e "${RED}Exiting... $target_host is not reachable.${NC}"
     exit 1
 fi
