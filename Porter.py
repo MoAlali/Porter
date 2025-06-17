@@ -11,7 +11,6 @@ NC = '\033[0m'
 
 # TODO: Implement a function to discover hosts in a subnet using other methods
 # such as ARP requests or other protocols if ICMP is blocked.
-# This function will be used to discover hosts in a subnet
 def hosts_discovery(host):
     print(f"{CYAN}Starting host discovery for {host}...{NC}")
     try:
@@ -96,24 +95,25 @@ def parse_ports(port_input):
 def main():
     print_banner()
     host = input("Enter target host IP: ").strip()
-    port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
-    scan_type = input("Scan type (tcp/udp): ").strip().lower()
+
     
     if host.endswith('.0'):
         hosts_discovery(host)
     else:
+        port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
+        scan_type = input("Scan type (tcp/udp): ").strip().lower()
         host_discovery(host)
-    ports = parse_ports(port_input)
+        ports = parse_ports(port_input)
 
-    if host_discovery(host):
-        if scan_type == "udp":
-            udp_scan(host, ports)
+        if host_discovery(host):
+            if scan_type == "udp":
+                udp_scan(host, ports)
+            else:
+                tcp_scan(host, ports)
+            print(f"{GREEN}Port scan completed.{NC}")
         else:
-            tcp_scan(host, ports)
-        print(f"{GREEN}Port scan completed.{NC}")
-    else:
-        print(f"{RED}Exiting... {host} is not reachable.{NC}")
-        sys.exit(1)
+            print(f"{RED}Exiting... {host} is not reachable.{NC}")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
