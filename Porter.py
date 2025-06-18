@@ -2,7 +2,6 @@ import socket
 import sys
 import re
 import custom_ping
-# TODO try to make the script use multiple threads for scanning ports to speed up the process.
 
 
 GREEN = '\033[0;32m'
@@ -29,9 +28,8 @@ def hosts_discovery(hosts , portscan_verify=False):
 # TODO: i need to try to determine the OS using a different method
 def detect_os(host , port_verify=False):
     print(f"{CYAN}Detecting OS for {host}...{NC}")
-    if custom_ping.get_ttl(host):
-        ttl = custom_ping.get_ttl(host)
-        if ttl is not None:
+    ttl = custom_ping.get_ttl(host)
+    if ttl is not None:
             if ttl <= 1:
                 print(f"{GREEN}Target {host} is likely a loopback or heavily filtered firewall.{NC}")
             elif ttl <= 20:
@@ -53,14 +51,19 @@ def detect_os(host , port_verify=False):
                 print(f"{GREEN}Target {host} is likely running Cisco, Solaris, or AIX.{NC}")
             else:
                 print(f"{GREEN}Target {host} has an unknown OS.{NC}")
-        else:
-            print(f"{RED}Could not determine TTL for {host}.{NC}")
+    else:
+        print(f"{RED}Could not determine TTL for {host}.{NC}")
 
 def port_os_detection(host):
-    # i need to change the list
+    # i need to change the list Of ports that interesting os of the machine that been scanned
+    print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
     common_ports = [22, 23, 80, 443, 3306, 8080]
-    open_ports = []
-    tcp_scan(host, common_ports)
+    open_ports = tcp_scan(host, common_ports)
+    if open_ports:
+        if 3389 in open_ports:
+            print(f"{GREEN}Port 3389 (RDP) is open on {host}. This is almost certainly a Windows machine!{NC}")
+        else:
+            print(f"{GREEN}Open ports on {host}: {open_ports}{NC}")
     
 def print_banner():
     print(CYAN)
@@ -140,11 +143,15 @@ def send_ack_packet(host, port):
 
 def banner_grabbing(host, port):
     print(f"{CYAN}Grabbing banner from {host}:{port}...{NC}")
-    s = socket.socket()
-    # s.settimeout(7)
-    s.connect((host, port))
-    banner = s.recv(1024).decode(errors='ignore')
-    print(f"Banner from {host}:{port}:\n{banner}")
+    try:
+        s = socket.socket()
+        s.settimeout(10)
+        s.connect((host, port))
+        banner = s.recv(1024).decode(errors='ignore')
+        print(f"Banner from {host}:{port}:\n{banner}")
+        s.close()
+    except Exception as e:
+        print(f"{RED}Failed to grab banner from {host}:{port}: {e}{NC}")
     
 def parse_ports(port_input):
     ports = []
