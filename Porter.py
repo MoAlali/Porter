@@ -20,6 +20,7 @@ def hosts_discovery(hosts , portscan_verify=False):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
                 detect_os(target, port_verify=portscan_verify)
             else:
+                # send_ack_packet()
                 print(f"{RED}{target} is offline or not responding on ICMP.{NC}")
 
     except Exception as e:
@@ -83,7 +84,7 @@ def host_discovery(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
         return True
 
-
+# add more ports to check if the host is up
     for port in [80, 443]:
         try:
             with socket.create_connection((host, port), timeout=1):
@@ -182,6 +183,7 @@ def main():
 
     host = input("Enter target host IP: ").strip()
     # banner_grabbing(host,443)
+    # dynamic host range /24 the current i want to make its flexible to the user
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
         if input("Do you want to perform a port scan to identify the OS? Enter 'yes' to do or press Enter to ignore: ").strip().lower() == "yes":
