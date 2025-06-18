@@ -12,20 +12,57 @@ NC = '\033[0m'
 
 # TODO: Implement a function to discover hosts in a subnet using other methods
 # such as ARP requests or other protocols if ICMP is blocked.
-def hosts_discovery(host):
-    print(f"{CYAN}Starting host discovery for {host}...{NC}")
+
+def hosts_discovery(hosts , portscan_verify=False):
+    print(f"{CYAN}Starting host discovery for {hosts}...{NC}")
     try:
-        for i in range(1, 255):
-            target = f"{host[:-1]}{i}"
+        for target in hosts:
             if custom_ping_icmp.custom_ping_icmp(target):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
-                
+                detect_os(target, port_verify=portscan_verify)
             else:
-                print(f"{RED}{target} is DOWN{NC}")
+                print(f"{RED}{target} is offline or not responding on ICMP.{NC}")
+
     except Exception as e:
         print(f"{RED}Error during host discovery: {e}{NC}")
 
+# TODO: you can dedect the OS of the target by TTL and scan some common ports
+# Also i need to port scan some common ports to determine the OS using a different method
+def detect_os(host , port_verify=False):
+    print(f"{CYAN}Detecting OS for {host}...{NC}")
+    if custom_ping_icmp.get_ttl(host):
+        ttl = custom_ping_icmp.get_ttl(host)
+        if ttl is not None:
+            if ttl <= 1:
+                print(f"{GREEN}Target {host} is likely a loopback or heavily filtered firewall.{NC}")
+            elif ttl <= 20:
+                print(f"{GREEN}Target {host} is likely running HP-UX or an older networking device.{NC}")
+            elif ttl <= 30:
+                print(f"{GREEN}Target {host} is likely running an older version of Windows.{NC}")
+                if (port_verify):
+                   port_os_detection(host)
+            elif ttl <= 60:
+                print(f"{GREEN}Target {host} is likely running macOS (older versions).{NC}")
+            elif ttl <= 64:
+                print(f"{GREEN}Target {host} is likely running Linux.{NC}")
+                if (port_verify):
+                   port_os_detection(host)
+            elif ttl <= 128:
+                print(f"{GREEN}Target {host} is likely running Windows.{NC}")
 
+            elif ttl <= 255:
+                print(f"{GREEN}Target {host} is likely running Cisco, Solaris, or AIX.{NC}")
+            else:
+                print(f"{GREEN}Target {host} has an unknown OS.{NC}")
+        else:
+            print(f"{RED}Could not determine TTL for {host}.{NC}")
+
+def port_os_detection(host):
+    # Scan common ports to help determine the OS  i need to change the list
+    common_ports = [22, 23, 80, 443, 3306, 8080]
+    open_ports = []
+    tcp_scan(host, common_ports)
+    
 def print_banner():
     print(CYAN)
     print("  _____           _            ")
@@ -57,14 +94,17 @@ def host_discovery(host):
     return False
 
 def tcp_scan(host, ports):
+    print(ports)
+    open_ports = []
     print(f"{CYAN}Starting TCP scan on {host} for ports: {ports}{NC}")
     for port in ports:
         try:
             with socket.create_connection((host, port), timeout=1):
                 print(f"{GREEN}TCP Port {port} is open on {host}{NC}")
+                open_ports.append(port)
         except:
             pass
-
+    return open_ports
 def udp_scan(host, ports):
     print(f"{CYAN}Starting UDP scan on {host} for ports: {ports}{NC}")
     for port in ports:
@@ -81,6 +121,10 @@ def udp_scan(host, ports):
         finally:
             sock.close()
 
+def arp_scan(host):
+    print(f"{CYAN}Starting ARP scan on {host}...{NC}")
+    # Placeholder for ARP scan implementation
+
 def parse_ports(port_input):
     ports = []
     if re.match(r'^\d+-\d+$', port_input):
@@ -92,14 +136,33 @@ def parse_ports(port_input):
         print(f"{RED}Invalid port format. Use single port (22) or range (20-80).{NC}")
         sys.exit(1)
     return ports
-
+def parse_host_range(host_range , host):
+    hosts = []
+    if re.match(r'^\d+-\d+$', host_range):
+        start, end = map(int, host_range.split('-'))
+        base = '.'.join(host.split('.')[:-1])
+        hosts = [f"{base}.{i}" for i in range(start, end + 1)]
+    elif host_range.isdigit():
+        base = '.'.join(host.split('.')[:-1])
+        hosts = [f"{base}.{host_range}"]
+    else:
+        print(f"{RED}Invalid host format. Use single host (22) or range (1-254).{NC}")
+        sys.exit(1)
+    return hosts
 def main():
     print_banner()
+   
     host = input("Enter target host IP: ").strip()
-
-    
     if host.endswith('.0'):
-        hosts_discovery(host)
+        hosts_range = input("Enter host range (e.g., 1-254): ").strip()
+        if input("Do you want to perform a port scan to identify the OS? Enter 'yes' to do or press Enter to ignore: ").strip().lower() == "yes":
+            portscan_verify = True
+        parsed_hosts_range = parse_host_range(hosts_range , host)
+        if (portscan_verify):
+            hosts_discovery(parsed_hosts_range ,True)
+        else:
+            hosts_discovery(parsed_hosts_range)
+
     else:
         port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
         scan_type = input("Scan type (tcp/udp): ").strip().lower()
