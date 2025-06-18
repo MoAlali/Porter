@@ -181,7 +181,7 @@ def main():
     print_banner()
 
     host = input("Enter target host IP: ").strip()
-    banner_grabbing(host,443)
+    # banner_grabbing(host,443)
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
         if input("Do you want to perform a port scan to identify the OS? Enter 'yes' to do or press Enter to ignore: ").strip().lower() == "yes":
@@ -195,7 +195,7 @@ def main():
     else:
         port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
         scan_type = input("Scan type (tcp/udp): ").strip().lower()
-        host_discovery(host)
+        # host_discovery(host)
         ports = parse_ports(port_input)
 
         if host_discovery(host):
