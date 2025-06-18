@@ -55,7 +55,7 @@ def ping_icmp(host, timeout=1):
                     return False
     except Exception:
         return False
-
+# TODO -  i can use the above function and just return the number of TTL
 def get_ttl(host):
     try:
         icmp = socket.getprotobyname('icmp')
@@ -88,3 +88,5 @@ def get_ttl(host):
                     return None
     except Exception:
         return None
+
+

@@ -11,7 +11,7 @@ CYAN = '\033[0;36m'
 NC = '\033[0m'  
 
 # TODO: Implement a function to discover hosts in a subnet using other methods
-# such as ARP requests or other protocols if ICMP is blocked.
+# such as Ack requests or other protocols if ICMP is blocked.
 
 def hosts_discovery(hosts , portscan_verify=False):
     print(f"{CYAN}Starting host discovery for {hosts}...{NC}")
@@ -123,14 +123,29 @@ def udp_scan(host, ports):
         finally:
             sock.close()
     return open_udp_ports
-def arp_scan(host):
-    print(f"{CYAN}Starting ARP scan on {host}...{NC}")
-    # Placeholder for ARP scan implementation
+
+def send_ack_packet(host, port):
+    print(f"{CYAN}Sending ACK packet to {host}:{port}...{NC}")
+    
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            sock.connect((host, port))
+            sock.sendall(b'\x00\x00\x00\x00')  # Placeholder for ACK payload
+            response = sock.recv(1024)
+            print(f"{GREEN}Received ACK response from {host}:{port}:\n{response}{NC}")
+
+    except Exception as e:
+        print(f"{RED}Error sending ACK packet: {e}{NC}")
 
 def banner_grabbing(host, port):
     print(f"{CYAN}Grabbing banner from {host}:{port}...{NC}")
-
-
+    s = socket.socket()
+    # s.settimeout(7)
+    s.connect((host, port))
+    banner = s.recv(1024).decode(errors='ignore')
+    print(f"Banner from {host}:{port}:\n{banner}")
+    
 def parse_ports(port_input):
     ports = []
     if re.match(r'^\d+-\d+$', port_input):
@@ -157,8 +172,9 @@ def parse_host_range(host_range , host):
     return hosts
 def main():
     print_banner()
-   
+
     host = input("Enter target host IP: ").strip()
+    banner_grabbing(host,443)
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
         if input("Do you want to perform a port scan to identify the OS? Enter 'yes' to do or press Enter to ignore: ").strip().lower() == "yes":
