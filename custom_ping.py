@@ -23,7 +23,7 @@ def checksum(source_string):
     answer = ~sum & 0xffff
     return answer
 
-def custom_ping_icmp(host, timeout=1):
+def ping_icmp(host, timeout=1):
     try:
         icmp = socket.getprotobyname('icmp')
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp) as sock:
@@ -56,7 +56,6 @@ def custom_ping_icmp(host, timeout=1):
     except Exception:
         return False
 
-# i want to create a function to return the ttl of the packet
 def get_ttl(host):
     try:
         icmp = socket.getprotobyname('icmp')

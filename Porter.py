@@ -1,7 +1,7 @@
 import socket
 import sys
 import re
-import custom_ping_icmp
+import custom_ping
 # TODO try to make the script use multiple threads for scanning ports to speed up the process.
 
 
@@ -17,7 +17,7 @@ def hosts_discovery(hosts , portscan_verify=False):
     print(f"{CYAN}Starting host discovery for {hosts}...{NC}")
     try:
         for target in hosts:
-            if custom_ping_icmp.custom_ping_icmp(target):
+            if custom_ping.ping_icmp(target):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
                 detect_os(target, port_verify=portscan_verify)
             else:
@@ -26,12 +26,11 @@ def hosts_discovery(hosts , portscan_verify=False):
     except Exception as e:
         print(f"{RED}Error during host discovery: {e}{NC}")
 
-# TODO: you can dedect the OS of the target by TTL and scan some common ports
-# Also i need to port scan some common ports to determine the OS using a different method
+# TODO: i need to try to determine the OS using a different method
 def detect_os(host , port_verify=False):
     print(f"{CYAN}Detecting OS for {host}...{NC}")
-    if custom_ping_icmp.get_ttl(host):
-        ttl = custom_ping_icmp.get_ttl(host)
+    if custom_ping.get_ttl(host):
+        ttl = custom_ping.get_ttl(host)
         if ttl is not None:
             if ttl <= 1:
                 print(f"{GREEN}Target {host} is likely a loopback or heavily filtered firewall.{NC}")
@@ -58,7 +57,7 @@ def detect_os(host , port_verify=False):
             print(f"{RED}Could not determine TTL for {host}.{NC}")
 
 def port_os_detection(host):
-    # Scan common ports to help determine the OS  i need to change the list
+    # i need to change the list
     common_ports = [22, 23, 80, 443, 3306, 8080]
     open_ports = []
     tcp_scan(host, common_ports)
@@ -77,7 +76,7 @@ def print_banner():
 
 def host_discovery(host):
     print(f"{CYAN}Checking if {host} is up...{NC}")
-    if custom_ping_icmp.custom_ping_icmp(host):
+    if custom_ping.ping_icmp(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
         return True
 
@@ -95,18 +94,20 @@ def host_discovery(host):
 
 def tcp_scan(host, ports):
     print(ports)
-    open_ports = []
+    open_tcp_ports = []
     print(f"{CYAN}Starting TCP scan on {host} for ports: {ports}{NC}")
     for port in ports:
         try:
             with socket.create_connection((host, port), timeout=1):
                 print(f"{GREEN}TCP Port {port} is open on {host}{NC}")
-                open_ports.append(port)
+                open_tcp_ports.append(port)
         except:
             pass
-    return open_ports
+    return open_tcp_ports
 def udp_scan(host, ports):
+    print(ports)
     print(f"{CYAN}Starting UDP scan on {host} for ports: {ports}{NC}")
+    open_udp_ports = []
     for port in ports:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -114,16 +115,21 @@ def udp_scan(host, ports):
             sock.sendto(b'', (host, port))
             sock.recvfrom(1024)
             print(f"{GREEN}UDP Port {port} is open on {host}{NC}")
+            open_udp_ports.append(port)
         except socket.timeout:
             print(f"{GREEN}UDP Port {port} is open|filtered on {host} (no response){NC}")
         except:
             pass
         finally:
             sock.close()
-
+    return open_udp_ports
 def arp_scan(host):
     print(f"{CYAN}Starting ARP scan on {host}...{NC}")
     # Placeholder for ARP scan implementation
+
+def banner_grabbing(host, port):
+    print(f"{CYAN}Grabbing banner from {host}:{port}...{NC}")
+
 
 def parse_ports(port_input):
     ports = []
