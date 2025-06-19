@@ -19,14 +19,14 @@ def hosts_discovery(hosts , portscan_verify=False):
             if custom_ping.ping_icmp(target):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
                 detect_os(target, port_verify=portscan_verify)
+            # elif send_ack_packet(target , 80):
+            #      print(f"{GREEN}{target} is UP (using ACK){NC}")
             else:
-                # send_ack_packet()
                 print(f"{RED}{target} is offline or not responding on ICMP.{NC}")
 
     except Exception as e:
         print(f"{RED}Error during host discovery: {e}{NC}")
 
-# TODO: i need to try to determine the OS using a different method
 def detect_os(host , port_verify=False):
     print(f"{CYAN}Detecting OS for {host}...{NC}")
     ttl = custom_ping.get_ttl(host)
@@ -54,17 +54,40 @@ def detect_os(host , port_verify=False):
                 print(f"{GREEN}Target {host} has an unknown OS.{NC}")
     else:
         print(f"{RED}Could not determine TTL for {host}.{NC}")
+        print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
+        port_os_detection(host)
+        
 
 def port_os_detection(host):
-    # i need to change the list Of ports that interesting os of the machine that been scanned
     print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
-    common_ports = [22, 23, 80, 443, 3306, 8080]
-    open_ports = tcp_scan(host, common_ports)
+    os_ports = [
+        22,    # SSH (Linux/Unix/macOS)
+        23,    # Telnet (network devices, legacy systems)
+        80,    # HTTP (common on all OS)
+        135,   # MS RPC (Windows)
+        139,   # NetBIOS (Windows)
+        443,   # HTTPS (common on all OS)
+        445,   # SMB (Windows, also used by Samba on Linux try banner grabbing to make sure 100%)
+        3389,  # RDP (Windows)
+        5900,  # VNC (Linux/macOS/Windows)
+        3306,  # MySQL (Linux/Windows)
+        5432,  # PostgreSQL (Linux/Unix)
+        6379,  # Redis (Linux/Unix)
+        27017, # MongoDB (Linux/Unix)
+    ]
+
+    open_ports = tcp_scan(host, os_ports)
     if open_ports:
-        if 3389 in open_ports:
-            print(f"{GREEN}Port 3389 (RDP) is open on {host}. This is almost certainly a Windows machine!{NC}")
+        if 3389 in open_ports or 445 in open_ports or 135 in open_ports or 139 in open_ports:
+            print(f"{GREEN}Windows-specific ports detected on {host}. Likely a Windows machine!{NC}")
+        elif 22 in open_ports or 5432 in open_ports:
+            print(f"{GREEN}Linux/Unix-specific ports detected on {host}. Likely a Linux/Unix system!{NC}")
+        elif 5900 in open_ports:
+            print(f"{GREEN}VNC detected on {host}. Could be Linux, macOS, or Windows with VNC!{NC}")
         else:
             print(f"{GREEN}Open ports on {host}: {open_ports}{NC}")
+    else:
+        print(f"{RED}No common OS-specific ports open on {host}.{NC}")
     
 def print_banner():
     print(CYAN)
@@ -84,11 +107,13 @@ def host_discovery(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
         return True
 
-# add more ports to check if the host is up
-    for port in [80, 443]:
+    for port in [80, 443 ,22 ,23, 21, 25, 53 , 3306, 5432]:
+        common_banner_ports = [21, 22, 23, 25, 80, 110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
         try:
             with socket.create_connection((host, port), timeout=1):
                 print(f"{GREEN}{host} is UP (port {port}){NC}")
+                if port in common_banner_ports:
+                    banner_grabbing(host, port)
                 return True
         except:
             continue
@@ -182,10 +207,11 @@ def main():
     print_banner()
 
     host = input("Enter target host IP: ").strip()
-    # banner_grabbing(host,443)
-    # dynamic host range /24 the current i want to make its flexible to the user
+    banner_grabbing(host,22)
+    # dynamic host range /24 the current , i want to make its flexible to the user
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
+        portscan_verify = False
         if input("Do you want to perform a port scan to identify the OS? Enter 'yes' to do or press Enter to ignore: ").strip().lower() == "yes":
             portscan_verify = True
         parsed_hosts_range = parse_host_range(hosts_range , host)

@@ -47,7 +47,7 @@ def ping_icmp(host, timeout=1):
                     icmp_header = recv_packet[20:28]
                     r_type, r_code, r_checksum, r_id, r_seq = struct.unpack('bbHHh', icmp_header)
 
-                    if r_id == packet_id:
+                    if r_type == 0 and r_code == 0 and r_id == packet_id:
                         return True
                 except socket.timeout:
                     return False
@@ -55,7 +55,6 @@ def ping_icmp(host, timeout=1):
                     return False
     except Exception:
         return False
-# TODO -  i can use the above function and just return the number of TTL
 def get_ttl(host):
     try:
         icmp = socket.getprotobyname('icmp')
