@@ -62,7 +62,6 @@ def port_os_detection(host):
     print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
     os_ports = [
         22,    # SSH (Linux/Unix/macOS) need to check banner to be sure
-        23,    # Telnet (network devices, legacy systems)
         80,    # HTTP (common on all OS)
         135,   # MS RPC (Windows)
         139,   # NetBIOS (Windows)
@@ -90,7 +89,7 @@ def port_os_detection(host):
             print(f"{GREEN}Linux/Unix-specific ports detected on {host}. Likely a Linux/Unix system!{NC}")
         elif 5900 in open_ports:
             print(f"{GREEN}VNC detected on {host}. Could be Linux, macOS, or Windows with VNC!{NC}")
-        elif 80 or 443 in open_ports:
+        elif 80 in open_ports or 443 in open_ports:
             print(f"{GREEN}HTTP/HTTPS detected on {host}. Could be any OS with a web server!{NC}")
             if 80 in open_ports:
                 banner = send_get_request(host, 80)
@@ -132,7 +131,7 @@ def host_discovery(host):
         return True
 
     for port in [22,23,21,25,53,80,443,3306,5432]:
-        common_banner_ports = [21, 22, 23, 25,110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
+        common_banner_ports = [21,22, 23, 25,110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
         try:
             with socket.create_connection((host, port), timeout=1):
                 print(f"{GREEN}{host} is UP (port {port}){NC}")
@@ -198,7 +197,15 @@ def send_get_request(host, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(1)
             sock.connect((host, port))
+            
             request = f"GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+            sock.sendall(request.encode())
+            response = sock.recv(1024)
+
+            if b"HTTP/1.1" not in response and b"HTTP/2" not in response:
+                request = f"GET / HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+                sock.sendall(request.encode())
+                response = sock.recv(1024)
             sock.sendall(request.encode())
             response = sock.recv(1024)
             headers = response.decode(errors='ignore').split('\r\n')
