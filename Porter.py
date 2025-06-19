@@ -61,7 +61,7 @@ def detect_os(host , port_verify=False):
 def port_os_detection(host):
     print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
     os_ports = [
-        22,    # SSH (Linux/Unix/macOS)
+        22,    # SSH (Linux/Unix/macOS) need to check banner to be sure
         23,    # Telnet (network devices, legacy systems)
         80,    # HTTP (common on all OS)
         135,   # MS RPC (Windows)
@@ -69,7 +69,6 @@ def port_os_detection(host):
         443,   # HTTPS (common on all OS)
         445,   # SMB (Windows, also used by Samba on Linux try banner grabbing to make sure 100%)
         3389,  # RDP (Windows)
-        5900,  # VNC (Linux/macOS/Windows)
         3306,  # MySQL (Linux/Windows)
         5432,  # PostgreSQL (Linux/Unix)
         6379,  # Redis (Linux/Unix)
@@ -79,11 +78,36 @@ def port_os_detection(host):
     open_ports = tcp_scan(host, os_ports)
     if open_ports:
         if 3389 in open_ports or 445 in open_ports or 135 in open_ports or 139 in open_ports:
-            print(f"{GREEN}Windows-specific ports detected on {host}. Likely a Windows machine!{NC}")
+            print(f"{GREEN}Windows-specific ports detected on {host}. Likely a Windows machine!{NC}") 
+            if 445 in open_ports:
+                banner = banner_grabbing(host, 445)
+                if banner and "samba" in banner.lower():
+                    print(f"{GREEN}SMB (Samba) detected on {host}. Likely a Linux system!{NC}")
+                else:
+                    print(f"{GREEN}SMB detected on {host}. Likely a Windows system!{NC}")
+                
         elif 22 in open_ports or 5432 in open_ports:
             print(f"{GREEN}Linux/Unix-specific ports detected on {host}. Likely a Linux/Unix system!{NC}")
         elif 5900 in open_ports:
             print(f"{GREEN}VNC detected on {host}. Could be Linux, macOS, or Windows with VNC!{NC}")
+        elif 80 or 443 in open_ports:
+            print(f"{GREEN}HTTP/HTTPS detected on {host}. Could be any OS with a web server!{NC}")
+            if 80 in open_ports:
+                banner = send_get_request(host, 80)
+                if banner:
+                    banner_lower = banner.lower()
+                    if "windows" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates Windows OS on {host}!{NC}")
+                    elif "ubuntu" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates Ubuntu/linux OS on {host}!{NC}")
+            if 443 in open_ports:
+                banner = send_get_request(host, 443)
+                if banner:
+                    banner_lower = banner.lower()
+                    if "windows" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates Windows OS on {host}!{NC}")
+                    elif "ubuntu" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates Ubuntu OS on {host}!{NC}")
         else:
             print(f"{GREEN}Open ports on {host}: {open_ports}{NC}")
     else:
@@ -107,13 +131,15 @@ def host_discovery(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
         return True
 
-    for port in [80, 443 ,22 ,23, 21, 25, 53 , 3306, 5432]:
-        common_banner_ports = [21, 22, 23, 25, 80, 110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
+    for port in [22,23,21,25,53,80,443,3306,5432]:
+        common_banner_ports = [21, 22, 23, 25,110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
         try:
             with socket.create_connection((host, port), timeout=1):
                 print(f"{GREEN}{host} is UP (port {port}){NC}")
                 if port in common_banner_ports:
                     banner_grabbing(host, port)
+                elif port == 80 or port == 443:
+                    send_get_request(host, port)
                 return True
         except:
             continue
@@ -122,7 +148,6 @@ def host_discovery(host):
     return False
 
 def tcp_scan(host, ports):
-    print(ports)
     open_tcp_ports = []
     print(f"{CYAN}Starting TCP scan on {host} for ports: {ports}{NC}")
     for port in ports:
@@ -166,6 +191,33 @@ def send_ack_packet(host, port):
 
     except Exception as e:
         print(f"{RED}Error sending ACK packet: {e}{NC}")
+def send_get_request(host, port):
+    print(f"{CYAN}Sending GET request to {host}:{port}...{NC}")
+    
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(1)
+            sock.connect((host, port))
+            request = f"GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
+            sock.sendall(request.encode())
+            response = sock.recv(1024)
+            headers = response.decode(errors='ignore').split('\r\n')
+            server_header = None
+            powered_by = None
+            for header in headers:
+                if header.lower().startswith('server:'):
+                    server_header = header
+                elif header.lower().startswith('x-powered-by:'):
+                    powered_by = header
+            if server_header:
+                print(f"{GREEN}{server_header}{NC}")
+            if powered_by:
+                print(f"{GREEN}{powered_by}{NC}")
+            if not server_header and not powered_by:
+                print(f"{GREEN}Received response from {host}:{port} but no Server or X-Powered-By headers found.{NC}")
+
+    except Exception as e: 
+        print(f"{RED}Error sending GET request: {e}{NC}")
 
 def banner_grabbing(host, port):
     print(f"{CYAN}Grabbing banner from {host}:{port}...{NC}")
@@ -207,8 +259,7 @@ def main():
     print_banner()
 
     host = input("Enter target host IP: ").strip()
-    banner_grabbing(host,22)
-    # dynamic host range /24 the current , i want to make its flexible to the user
+    port_os_detection(host)
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
         portscan_verify = False
