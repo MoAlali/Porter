@@ -179,6 +179,7 @@ def udp_scan(host, ports):
         finally:
             sock.close()
     return open_udp_ports
+
 # current ACK logic doesn't construct a real TCP ACK. TCP requires a raw socket for custom flags like ACK.
 # i need to use libraries like scapy or raw sockets to send a real ACK packet.
 def send_ack_packet(host, port):
@@ -214,7 +215,7 @@ def send_get_request(host, port):
                 except socket.timeout:
                     break
 
-            # If HTTP/1.1 or HTTP/2 not in response, try HTTP/1.0
+           
             if b"HTTP/1.1" not in response and b"HTTP/2" not in response:
                 request = f"GET / HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
                 sock.sendall(request.encode())
@@ -296,8 +297,15 @@ def main():
             hosts_discovery(parsed_hosts_range ,True)
         else:
             hosts_discovery(parsed_hosts_range)
-
+    elif input('Do you want to perform a OS detection scan? Enter "yes" to do or press Enter to ignore: ').strip().lower() == "yes":
+        if single_host_discovery(host):
+            detect_os(host, port_verify=True)
+            print(f"{GREEN}OS detection completed.{NC}")
+        else:
+            print(f"{RED}Exiting... {host} is not reachable.{NC}")
+            sys.exit(1)
     else:
+        
         port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
         scan_type = input("Scan type (tcp/udp): ").strip().lower()
         # host_discovery(host)
