@@ -124,7 +124,7 @@ def print_banner():
     print("       By Mohammed Aloli       ")
     print(NC)
 
-def host_discovery(host):
+def single_host_discovery(host):
     print(f"{CYAN}Checking if {host} is up...{NC}")
     if custom_ping.ping_icmp(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
@@ -176,7 +176,8 @@ def udp_scan(host, ports):
         finally:
             sock.close()
     return open_udp_ports
-
+# current ACK logic doesn't construct a real TCP ACK. TCP requires a raw socket for custom flags like ACK.
+# i need to use libraries like scapy or raw sockets to send a real ACK packet.
 def send_ack_packet(host, port):
     print(f"{CYAN}Sending ACK packet to {host}:{port}...{NC}")
     
@@ -206,6 +207,7 @@ def send_get_request(host, port):
                 request = f"GET / HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
                 sock.sendall(request.encode())
                 response = sock.recv(1024)
+
             sock.sendall(request.encode())
             response = sock.recv(1024)
             headers = response.decode(errors='ignore').split('\r\n')
@@ -284,7 +286,7 @@ def main():
         # host_discovery(host)
         ports = parse_ports(port_input)
 
-        if host_discovery(host):
+        if single_host_discovery(host):
             if scan_type == "udp":
                 udp_scan(host, ports)
             else:
