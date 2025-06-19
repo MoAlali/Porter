@@ -23,6 +23,9 @@ def hosts_discovery(hosts , portscan_verify=False):
             #      print(f"{GREEN}{target} is UP (using ACK){NC}")
             else:
                 print(f"{RED}{target} is offline or not responding on ICMP.{NC}")
+                print(f"{CYAN}Performing port scan on {target} to verify...{NC}")
+                if portscan_verify:
+                    port_os_detection(target)
 
     except Exception as e:
         print(f"{RED}Error during host discovery: {e}{NC}")
@@ -196,20 +199,35 @@ def send_get_request(host, port):
     
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
+            sock.settimeout(2)
             sock.connect((host, port))
             
             request = f"GET / HTTP/1.1\r\nHost: {host}\r\nConnection: close\r\n\r\n"
             sock.sendall(request.encode())
-            response = sock.recv(1024)
+            response = b""
+            while True:
+                try:
+                    chunk = sock.recv(4096)
+                    if not chunk:
+                        break
+                    response += chunk
+                except socket.timeout:
+                    break
 
+            # If HTTP/1.1 or HTTP/2 not in response, try HTTP/1.0
             if b"HTTP/1.1" not in response and b"HTTP/2" not in response:
                 request = f"GET / HTTP/1.0\r\nHost: {host}\r\nConnection: close\r\n\r\n"
                 sock.sendall(request.encode())
-                response = sock.recv(1024)
+                response = b""
+                while True:
+                    try:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        response += chunk
+                    except socket.timeout:
+                        break
 
-            sock.sendall(request.encode())
-            response = sock.recv(1024)
             headers = response.decode(errors='ignore').split('\r\n')
             server_header = None
             powered_by = None
@@ -268,7 +286,6 @@ def main():
     print_banner()
 
     host = input("Enter target host IP: ").strip()
-    port_os_detection(host)
     if host.endswith('.0'):
         hosts_range = input("Enter host range (e.g., 1-254): ").strip()
         portscan_verify = False
