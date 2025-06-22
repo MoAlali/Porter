@@ -2,6 +2,7 @@ import socket
 import sys
 import re
 import custom_ping
+from scapy.all import IP, TCP, sr1, conf
 
 
 GREEN = '\033[0;32m'
@@ -9,8 +10,7 @@ RED = '\033[0;31m'
 CYAN = '\033[0;36m'
 NC = '\033[0m'  
 
-# TODO: Implement a function to discover hosts in a subnet using other methods
-# such as Ack requests or other protocols if ICMP is blocked.
+
 
 def hosts_discovery(hosts , portscan_verify=False):
     print(f"{CYAN}Starting host discovery for {hosts}...{NC}")
@@ -19,10 +19,11 @@ def hosts_discovery(hosts , portscan_verify=False):
             if custom_ping.ping_icmp(target):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
                 detect_os(target, port_verify=portscan_verify)
-            # elif send_ack_packet(target , 80):
-            #      print(f"{GREEN}{target} is UP (using ACK){NC}")
+            elif send_ack_packet(target, 80):
+                print(f"{GREEN}{target} is UP (using TCP ACK){NC}")
+                detect_os(target, port_verify=portscan_verify)
             else:
-                print(f"{RED}{target} is offline or not responding on ICMP.{NC}")
+                print(f"{RED}{target} is offline or not responding on ICMP or TCP ACK.{NC}")
                 print(f"{CYAN}Performing port scan on {target} to verify...{NC}")
                 if portscan_verify:
                     port_os_detection(target)
@@ -57,7 +58,6 @@ def detect_os(host , port_verify=False):
                 print(f"{GREEN}Target {host} has an unknown OS.{NC}")
     else:
         print(f"{RED}Could not determine TTL for {host}.{NC}")
-        print(f"{CYAN}Performing port scan on {host} to identify OS...{NC}")
         port_os_detection(host)
         
 
@@ -180,21 +180,24 @@ def udp_scan(host, ports):
             sock.close()
     return open_udp_ports
 
-# current ACK logic doesn't construct a real TCP ACK. TCP requires a raw socket for custom flags like ACK.
-# i need to use libraries like scapy or raw sockets to send a real ACK packet.
-def send_ack_packet(host, port):
-    print(f"{CYAN}Sending ACK packet to {host}:{port}...{NC}")
-    
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(1)
-            sock.connect((host, port))
-            sock.sendall(b'\x00\x00\x00\x00')  # Placeholder for ACK payload
-            response = sock.recv(1024)
-            print(f"{GREEN}Received ACK response from {host}:{port}:\n{response}{NC}")
 
+
+def send_ack_packet(host, port):
+    print(f"{CYAN}Sending TCP ACK packet to {host}:{port}...{NC}")
+    conf.verb = 0  # Suppress scapy output
+    try:
+        ip = IP(dst=host)
+        tcp = TCP(dport=port, flags="A", sport=12345, seq=1000, ack=100)
+        response = sr1(ip/tcp, timeout=2)
+        if response is not None:
+            print(f"{GREEN}Received response to ACK from {host}:{port}: {response.summary()}{NC}")
+            return True
+        else:
+            print(f"{RED}No response to ACK from {host}:{port}.{NC}")
+            return False
     except Exception as e:
         print(f"{RED}Error sending ACK packet: {e}{NC}")
+        return False
 def send_get_request(host, port):
     print(f"{CYAN}Sending GET request to {host}:{port}...{NC}")
     
