@@ -19,13 +19,18 @@ def hosts_discovery(hosts , portscan_verify=False):
             if custom_ping.ping_icmp(target):
                 print(f"{GREEN}{target} is UP (using ICMP){NC}")
                 detect_os(target, port_verify=portscan_verify)
-            elif send_ack_packet(target, 80):
-                print(f"{GREEN}{target} is UP (using TCP ACK){NC}")
-                detect_os(target, port_verify=portscan_verify)
+            else:
+                print(f"{RED}{target} is DOWN (ICMP not responding){NC}")
+                common_ports = [80, 443, 22, 21, 25, 53, 3306, 3389, 8080, 445, 135, 139]
+            for port in common_ports:
+                if send_ack_packet(target, port):
+                    print(f"{GREEN}{target} is UP (using TCP ACK on port {port}){NC}")
+                    detect_os(target, port_verify=portscan_verify)
+                    break
             else:
                 print(f"{RED}{target} is offline or not responding on ICMP or TCP ACK.{NC}")
-                print(f"{CYAN}Performing port scan on {target} to verify...{NC}")
                 if portscan_verify:
+                    print(f"{CYAN}Performing port scan on {target} to verify...{NC}")
                     port_os_detection(target)
 
     except Exception as e:
@@ -88,7 +93,7 @@ def port_os_detection(host):
                 else:
                     print(f"{GREEN}SMB detected on {host}. Likely a Windows system!{NC}")
                 
-        elif 22 in open_ports or 5432 in open_ports:
+        elif open_ports or 5432 in open_ports:
             print(f"{GREEN}Linux/Unix-specific ports detected on {host}. Likely a Linux/Unix system!{NC}")
         elif 5900 in open_ports:
             print(f"{GREEN}VNC detected on {host}. Could be Linux, macOS, or Windows with VNC!{NC}")
@@ -101,7 +106,17 @@ def port_os_detection(host):
                     if "windows" in banner_lower:
                         print(f"{GREEN}HTTP banner indicates Windows OS on {host}!{NC}")
                     elif "ubuntu" in banner_lower:
-                        print(f"{GREEN}HTTP banner indicates Ubuntu/linux OS on {host}!{NC}")
+                        print(f"{GREEN}HTTP banner indicates Ubuntu OS on {host}!{NC}")
+                    elif "debian" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates Debian OS on {host}!{NC}")
+                    elif "centos" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates CentOS OS on {host}!{NC}")
+                    elif "oracle" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates Oracle Linux OS on {host}!{NC}")
+                    elif "iis" in banner_lower:
+                        print(f"{GREEN}HTTP banner indicates IIS (Windows) on {host}!{NC}")
+                    else:
+                        print(f"{GREEN}HTTP banner for {host}: {banner}{NC}")
             if 443 in open_ports:
                 banner = send_get_request(host, 443)
                 if banner:
@@ -110,6 +125,16 @@ def port_os_detection(host):
                         print(f"{GREEN}HTTPS banner indicates Windows OS on {host}!{NC}")
                     elif "ubuntu" in banner_lower:
                         print(f"{GREEN}HTTPS banner indicates Ubuntu OS on {host}!{NC}")
+                    elif "debian" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates Debian OS on {host}!{NC}")
+                    elif "centos" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates CentOS OS on {host}!{NC}")
+                    elif "oracle" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates Oracle Linux OS on {host}!{NC}")
+                    elif "iis" in banner_lower:
+                        print(f"{GREEN}HTTPS banner indicates IIS (Windows) on {host}!{NC}")
+                    else:
+                        print(f"{GREEN}HTTPS banner for {host}: {banner}{NC}")
         else:
             print(f"{GREEN}Open ports on {host}: {open_ports}{NC}")
     else:
@@ -132,6 +157,13 @@ def single_host_discovery(host):
     if custom_ping.ping_icmp(host):
         print(f"{GREEN}{host} is UP (using a ICMP){NC}")
         return True
+    else:
+       
+        common_ports = [80, 443, 22, 21, 25, 53, 3306, 3389, 8080, 445, 135, 139]
+        for port in common_ports:
+            if send_ack_packet(host, port):
+                print(f"{GREEN}{host} is UP (using TCP ACK on port {port}){NC}")
+                return True
 
     for port in [22,23,21,25,53,80,443,3306,5432]:
         common_banner_ports = [21,22, 23, 25,110, 143, 3306, 3389, 5900, 8080, 6379, 5432, 27017]
@@ -173,7 +205,7 @@ def udp_scan(host, ports):
             print(f"{GREEN}UDP Port {port} is open on {host}{NC}")
             open_udp_ports.append(port)
         except socket.timeout:
-            print(f"{GREEN}UDP Port {port} is open|filtered on {host} (no response){NC}")
+            print(f"{GREEN}UDP Port {port} is filtered or {host} (no response){NC}")
         except:
             pass
         finally:
@@ -184,7 +216,7 @@ def udp_scan(host, ports):
 
 def send_ack_packet(host, port):
     print(f"{CYAN}Sending TCP ACK packet to {host}:{port}...{NC}")
-    conf.verb = 0  # Suppress scapy output
+    conf.verb = 0  
     try:
         ip = IP(dst=host)
         tcp = TCP(dport=port, flags="A", sport=12345, seq=1000, ack=100)
@@ -311,7 +343,6 @@ def main():
         
         port_input = input("Enter port or port range to scan (e.g., 22 or 20-80): ").strip()
         scan_type = input("Scan type (tcp/udp): ").strip().lower()
-        # host_discovery(host)
         ports = parse_ports(port_input)
 
         if single_host_discovery(host):
