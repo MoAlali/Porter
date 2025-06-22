@@ -93,7 +93,7 @@ def port_os_detection(host):
                 else:
                     print(f"{GREEN}SMB detected on {host}. Likely a Windows system!{NC}")
                 
-        elif open_ports or 5432 in open_ports:
+        elif 5432 in open_ports:
             print(f"{GREEN}Linux/Unix-specific ports detected on {host}. Likely a Linux/Unix system!{NC}")
         elif 5900 in open_ports:
             print(f"{GREEN}VNC detected on {host}. Could be Linux, macOS, or Windows with VNC!{NC}")
@@ -278,10 +278,10 @@ def send_get_request(host, port):
                 print(f"{GREEN}{powered_by}{NC}")
             if not server_header and not powered_by:
                 print(f"{GREEN}Received response from {host}:{port} but no Server or X-Powered-By headers found.{NC}")
-
+            return f"{server_header or ''} {powered_by or ''}".strip()
     except Exception as e: 
         print(f"{RED}Error sending GET request: {e}{NC}")
-
+        return None
 def banner_grabbing(host, port):
     print(f"{CYAN}Grabbing banner from {host}:{port}...{NC}")
     try:
@@ -291,8 +291,10 @@ def banner_grabbing(host, port):
         banner = s.recv(1024).decode(errors='ignore')
         print(f"Banner from {host}:{port}:\n{banner}")
         s.close()
+        return banner
     except Exception as e:
         print(f"{RED}Failed to grab banner from {host}:{port}: {e}{NC}")
+        return None
     
 def parse_ports(port_input):
     ports = []
